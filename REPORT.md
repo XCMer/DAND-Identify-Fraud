@@ -27,12 +27,15 @@ The features that have the most amount of missing values are:
 
 The features that I decided to use, considering my initial assumption about their usefulness, and the total no. of values present were:
 
-1. total_payments
-1. total_stock_value
+1. director_fees
+1. long_term_incentive
 1. exercised_stock_options
 1. restricted_stock
 1. salary
 1. bonus
+1. expenses
+
+The director_fees is the most interesting, since it has 17 records, and we have 18 PoIs. Although we'd normally be wary of a variable with so many NAs, this one could prove useful.
 
 ### 1.5 Outliers
 
@@ -65,14 +68,14 @@ However, to generate these features, you have to know beforehand whether the giv
 
 I believe the following features could be good indicators of PoIs:
 
-1. total_payments
-1. total_stock_value
+1. director_fees
+1. long_term_incentive
 1. exercised_stock_options
 1. restricted_stock
 1. salary
 1. bonus
 
-The reason is, the fraud was all about money. The people who made the most amount of money are highly likely to be persons of interest.
+The reason is, the fraud was all about money. The people who made the most amount of money are highly likely to be persons of interest. I've avoided aggregate variables like total_payments because they could be redundant.
 
 ### 2.2 Come up with a new feature
 
@@ -85,13 +88,15 @@ I'm considering `salary - expense` to be a new feature. Generally, the higher th
 
 ### 2.3 Getting rid of features that we don't want
 
-The following features are the ones I'll definitely not use, because they have a lot of missing values:
+The following features are the ones with a lot of NAs:
 
 1. loan_advances: Only has 4 values out of 146
 1. deferred_income: Has 49 values out of 146
 1. deferral_payments: Has 39 values out of 146
 1. director_fees: Has 17 values out of 146
 1. restricted_stock_deferred: Has 18 values out of 146
+
+I'd probably not use most of them, except for director_fees, which I think might help in identifying PoIs. There could be other variables from the above list that'd be helpful too, but I'm just picking one for now.
 
 One correlated feature that I came across was `total_stock_value` and `exercised_stock_options`. You can't exercise more stock options than you have, so we see an almost linear relation. Thus, we only need one of the two features, which can reduce training time.
 
@@ -103,20 +108,77 @@ Also, there is one argument against ignoring features that have a lot of missing
 
 I explore the selection of features using SelectKBest. I explored the following features:
 
-1. salary
-1. expenses
-1. total_payments
-1. total_stock_value
+1. director_fees
+1. long_term_incentive
 1. exercised_stock_options
 1. restricted_stock
+1. salary
 1. bonus
+1. expenses
 
 My intention was not to find to top "K" features. My intention was to check how important each of them were. To do that, I ran SelectKBest with increasing values of k, from 1 to 5. I got the feature importances in this order:
 
 1. exercised_stock_options
-1. total_stock_value
 1. bonus
 1. salary
+1. long_term_incentive
 1. restricted_stock
 
 And it makes sense. The stock options and bonuses could have contributed more to the fraud than just pure salary.
+
+## Question 3
+What algorithm did you end up using? What other one(s) did you try? How did model performance differ between algorithms?
+
+I initally played around with SVC and DecisionTree in my jupyter notebook. However, after the train test split, SVC was just taking too long for the GridSearch, so I abondoned it.
+
+I tried RandomForestClassifier, DecisionTreeClassifier, and GaussianNB.
+
+**RandomForestClassifier:**
+The best params were: {'min_samples_split': 10, 'n_estimators': 10, 'min_samples_leaf': 3}
+The best score was: 0.89
+Precision: 0.53591
+Recall: 0.14550
+
+**DecisionTreeClassifier:**
+The best params were: {'min_samples_split': 2, 'min_samples_leaf': 8}
+The best score was: 0.87
+Precision: 0.39433
+Recall: 0.16700
+
+**GaussianNB:**
+Accuracy: 0.80800
+Precision: 0.34452
+Recall: 0.48750
+
+I did a stratified train-test split, and used GridSearchCV. However, in both RandomForestClassifier and the DecisionTreeClassifier, I could not reach 0.3 for both precision and recall. Surprisingly, GaussianNB gave me good results.
+
+Thus, I decided to go ahead with GaussianNB.
+
+## Question 4
+What does it mean to tune the parameters of an algorithm, and what can happen if you don’t do this well?  How did you tune the parameters of your particular algorithm? What parameters did you tune? (Some algorithms do not have parameters that you need to tune -- if this is the case for the one you picked, identify and briefly explain how you would have done it for the model that was not your final choice or a different model that does utilize parameter tuning, e.g. a decision tree classifier).  [relevant rubric items: “discuss parameter tuning”, “tune the algorithm”]
+
+Tuning the hyperparameters of an algorithm helps with increasing accuracy of the classifier. I tuned using GridSearchCV, though in the end, I had to use GaussianNB which does not have tunable hyperparameters.
+
+But I still ended up doing the tuning while trying out Random Forests and Decision Trees. You have to provide a list of possible values to try out for each parameter to GridSearchCV. Then, GridSearch will go through all the combinations of hyperparameters, and then run the classifier through K-Fold cross validation, and then tell you what set of parameters performed the best, and what the best score was.
+
+
+## Question 5
+What is validation, and what’s a classic mistake you can make if you do it wrong? How did you validate your analysis?  [relevant rubric items: “discuss validation”, “validation strategy”]
+
+If we train a classifier, and only look at the training performance, then we won't know if the classifier has really learnt the data or has just memorized the training set.
+
+We should always measure the performance of the classifier on data that it has not seen before, so that we get an idea of how the classifier generalizes.
+
+We thus divide the training data into a "training set" and a "validation set". The validation set is the set that the classifier does NOT get to train on. Once trained on the training set, we check the performance of the classifier on the validation set. If the classifier performed well on the training set, but not well on the validation set, then we know that the classifier is overfitting.
+
+Validation helps us avoid overfitting. I used GridSearchCV for K-fold cross validation. However, since I went ahead with GaussianNB, which didn't need the GridSearchCV, performance was measured on the "test" set. Test set consisted of 30% of the data that the classifier did not train on, so that we could measure its performance on unseen data.
+
+## Question 6
+Give at least 2 evaluation metrics and your average performance for each of them.  Explain an interpretation of your metrics that says something human-understandable about your algorithm’s performance. [relevant rubric item: “usage of evaluation metrics”]
+
+The two metrics that I tracked were precision and recall. The final algorithm achieved a precision of 0.34452 and a recall of 0.48750.
+
+Precision means, out of all the people we classified as persons of interest, how many were actually persons of interest. If we falsely flagged someone as a person of interest, then the precision reduces.
+
+Recall means, out of all the people who are really persons of interest, how many could be identify as persons of interest. Could we "recall" that these people are persons of interest. If we fail to identify a person as a PoI, then recall of the classifier reduces.
+
