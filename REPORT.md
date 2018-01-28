@@ -260,7 +260,7 @@ Validation helps us avoid overfitting. I used GridSearchCV for K-fold cross vali
 ## Question 6
 Give at least 2 evaluation metrics and your average performance for each of them.  Explain an interpretation of your metrics that says something human-understandable about your algorithm’s performance. [relevant rubric item: “usage of evaluation metrics”]
 
-The two metrics that I tracked were precision and recall. The final algorithm achieved a precision of 0.34452 and a recall of 0.48750.
+The two metrics that I tracked were precision and recall. The final algorithm achieved a precision of 0.46055 and a recall of 0.32100.
 
 Precision means, out of all the people we classified as persons of interest, how many were actually persons of interest. If we falsely flagged someone as a person of interest, then the precision reduces.
 
