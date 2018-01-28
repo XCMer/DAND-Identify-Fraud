@@ -23,11 +23,12 @@ The features that have the most amount of missing values are:
 1. director_fees: Has 17 values out of 146
 1. restricted_stock_deferred: Has 18 values out of 146
 
-### 1.4 Features used
+### 1.4 Candidate features
 
-The features that I decided to use, considering my initial assumption about their usefulness, and the total no. of values present were:
+These are my "candidate features", the ones that I think could be useful in my analysis, considering my initial assumption about their usefulness, and the total no. of values present were. This is not a finalized list, because that will require exhaustive analysis. This is for me to document now so that I can compare it with what the exhaustive search tells me.
 
 1. director_fees
+1. restricted_stock_deferred
 1. long_term_incentive
 1. exercised_stock_options
 1. restricted_stock
@@ -56,7 +57,7 @@ The director_fees is the most interesting, since it has 17 records, and we have 
 ## 2. Question 2
 What features did you end up using in your POI identifier, and what selection process did you use to pick them? Did you have to do any scaling? Why or why not? As part of the assignment, you should attempt to engineer your own feature that does not come ready-made in the dataset -- explain what feature you tried to make, and the rationale behind it. (You do not necessarily have to use it in the final analysis, only engineer and test it.) In your feature selection step, if you used an algorithm like a decision tree, please also give the feature importances of the features that you use, and if you used an automated feature selection function like SelectKBest, please report the feature scores and reasons for your choice of parameter values.  [relevant rubric items: “create new features”, “intelligently select features”, “properly scale features”]
 
-### 2.1 Select features based on intuition
+### 2.1 Candidate features based on intuition
 
 The following features are derived from PoIs:
 
@@ -66,16 +67,20 @@ The following features are derived from PoIs:
 
 However, to generate these features, you have to know beforehand whether the given person is a PoI. This looks like cheating, and I'm going to discard these features in my analysis. We're trying to predict the PoI field, so we shouldn't derive features from it. (Yes, we're tallying email address as persons of interest, but it still feels that defeating the purpose of machine learning)
 
-I believe the following features could be good indicators of PoIs:
+I believe the following features could be good starting points to do a computational analysis (SelectKBest, etc.):
 
 1. director_fees
+1. restricted_stock_deferred
 1. long_term_incentive
+1. total_stock_value
 1. exercised_stock_options
 1. restricted_stock
 1. salary
 1. bonus
+1. expenses
+1. total_payments
 
-The reason is, the fraud was all about money. The people who made the most amount of money are highly likely to be persons of interest. I've avoided aggregate variables like total_payments because they could be redundant.
+The reason is, the fraud was all about money. The people who made the most amount of money are highly likely to be persons of interest.
 
 ### 2.2 Come up with a new feature
 
@@ -83,10 +88,11 @@ Let's look at the plot below:
 
 ![Total payments vs. Salary - expense](images/salary_surplus.png "Total payments vs. Salary - expense")
 
-I'm considering `salary - expense` to be a new feature. Generally, the higher the salary you draw the greater the expense. But I observed that in a few cases, the salary is disproportionately high compared to the expenses. Maybe this could catch a few PoIs, and I'll also need to only include this one variable `salary - expense` instead of salary and expense individually.
+I'm considering `salary - expense` to be a new feature. Generally, the higher the salary you draw the greater the expense. But I observed that in a few cases, the salary is disproportionately high compared to the expenses. Maybe this could catch a few PoIs, and I'll also need to only include this one variable `salary - expense` instead of salary and expense individually. (This feature is called "salary_minus_expenses" in the features array of `poi_id.py` file.)
 
+Once I select my final algorithm, I'll test it by including both `salary` and `expense` separately, and then by just having `salary - expenses` instead of having two separate variables.
 
-### 2.3 Getting rid of features that we don't want
+### 2.3 Candidate features that we might not be able to use
 
 The following features are the ones with a lot of NAs:
 
@@ -96,7 +102,7 @@ The following features are the ones with a lot of NAs:
 1. director_fees: Has 17 values out of 146
 1. restricted_stock_deferred: Has 18 values out of 146
 
-I'd probably not use most of them, except for director_fees, which I think might help in identifying PoIs. There could be other variables from the above list that'd be helpful too, but I'm just picking one for now.
+I'd probably not use most of them, except for director_fees & restricted_stock_deferred, which I think might help in identifying PoIs. There could be other variables from the above list that'd be helpful too, but I'm just picking one for now.
 
 One correlated feature that I came across was `total_stock_value` and `exercised_stock_options`. You can't exercise more stock options than you have, so we see an almost linear relation. Thus, we only need one of the two features, which can reduce training time.
 
@@ -109,50 +115,127 @@ Also, there is one argument against ignoring features that have a lot of missing
 I explore the selection of features using SelectKBest. I explored the following features:
 
 1. director_fees
+1. restricted_stock_deferred
 1. long_term_incentive
+1. total_stock_value
 1. exercised_stock_options
 1. restricted_stock
 1. salary
 1. bonus
 1. expenses
+1. total_payments
 
-My intention was not to find to top "K" features. My intention was to check how important each of them were. To do that, I ran SelectKBest with increasing values of k, from 1 to 5. I got the feature importances in this order:
+To do the univariate feature selection, I put SelectKBest in the pipeline for GridSearchCV. This way, I'll know what values of K, and thus, which features are preferred by each of the algorithms, and what kind of performance do they end up giving.
 
-1. exercised_stock_options
-1. bonus
-1. salary
-1. long_term_incentive
-1. restricted_stock
+Since the feature selection outcome would be different for different algorithms that I try, I'll defer to "Question 3" to answer which features I used for which algorithms, and why.
 
-And it makes sense. The stock options and bonuses could have contributed more to the fraud than just pure salary.
+### 2.5 Feature scaling
+
+I did not have to do any feature scaling.
 
 ## Question 3
 What algorithm did you end up using? What other one(s) did you try? How did model performance differ between algorithms?
 
 I initally played around with SVC and DecisionTree in my jupyter notebook. However, after the train test split, SVC was just taking too long for the GridSearch, so I abondoned it.
 
-I tried RandomForestClassifier, DecisionTreeClassifier, and GaussianNB.
+I tried RandomForestClassifier, DecisionTreeClassifier, and GaussianNB. I modified the code in `poi_id.py` file so that I could select the best features for each of the algorithms, and then find the test results for the best parameters per classifier.
 
-**RandomForestClassifier:**
-The best params were: {'min_samples_split': 10, 'n_estimators': 10, 'min_samples_leaf': 3}
-The best score was: 0.89
-Precision: 0.53591
-Recall: 0.14550
+There were two distinct cases. In one case, I put "salary" and "expenses" as candidate features. In the second case, I removed "salary" and "expenses" from features_list, and instead put in my "salary_minus_expenses" feature, to test how it impacts performance across different algorithms.
 
-**DecisionTreeClassifier:**
-The best params were: {'min_samples_split': 2, 'min_samples_leaf': 8}
-The best score was: 0.87
-Precision: 0.39433
-Recall: 0.16700
+**CASE 1: Using "expenses" and "salary" in the features list**
 
-**GaussianNB:**
-Accuracy: 0.80800
-Precision: 0.34452
-Recall: 0.48750
+```
+Classifier:  dt (Decision Tree)
+Best params:  {'clf__min_samples_leaf': 1, 'clf__min_samples_split': 6, 'skb__k': 4}
+Best score:  0.89
+Best features:  ['exercised_stock_options', 'restricted_stock', 'bonus', 'salary']
+Final features list:  ['poi', 'exercised_stock_options', 'restricted_stock', 'bonus', 'salary']
+DecisionTreeClassifier(class_weight=None, criterion='gini', max_depth=None,
+            max_features=None, max_leaf_nodes=None,
+            min_impurity_decrease=0.0, min_impurity_split=None,
+            min_samples_leaf=1, min_samples_split=6,
+            min_weight_fraction_leaf=0.0, presort=False, random_state=0,
+            splitter='best')
+    Accuracy: 0.79686   Precision: 0.27040  Recall: 0.24850 F1: 0.25899 F2: 0.25259
+    Total predictions: 14000    True positives:  497    False positives: 1341   False negatives: 1503   True negatives: 10659
 
-I did a stratified train-test split, and used GridSearchCV. However, in both RandomForestClassifier and the DecisionTreeClassifier, I could not reach 0.3 for both precision and recall. Surprisingly, GaussianNB gave me good results.
+Classifier:  nb (Gaussian Naive Bayes)
+Best params:  {'skb__k': 1}
+Best score:  0.88
+Best features:  ['exercised_stock_options']
+Final features list:  ['poi', 'exercised_stock_options']
+GaussianNB(priors=None)
+    Accuracy: 0.90409   Precision: 0.46055  Recall: 0.32100 F1: 0.37831 F2: 0.34171
+    Total predictions: 11000    True positives:  321    False positives:  376   False negatives:  679   True negatives: 9624
 
-Thus, I decided to go ahead with GaussianNB.
+Classifier:  rf (Random Forest)
+Best params:  {'skb__k': 2, 'clf__min_samples_leaf': 2, 'clf__min_samples_split': 10, 'clf__n_estimators': 15}
+Best score:  0.9
+Best features:  ['exercised_stock_options', 'salary']
+Final features list:  ['poi', 'exercised_stock_options', 'salary']
+RandomForestClassifier(bootstrap=True, class_weight=None, criterion='gini',
+            max_depth=None, max_features='auto', max_leaf_nodes=None,
+            min_impurity_decrease=0.0, min_impurity_split=None,
+            min_samples_leaf=2, min_samples_split=10,
+            min_weight_fraction_leaf=0.0, n_estimators=15, n_jobs=1,
+            oob_score=False, random_state=0, verbose=0, warm_start=False)
+    Accuracy: 0.84469   Precision: 0.48738  Recall: 0.18350 F1: 0.26662 F2: 0.20964
+    Total predictions: 13000    True positives:  367    False positives:  386   False negatives: 1633   True negatives: 10614
+```
+
+In this case, I got satisfactory results only with the GaussinNB, since it was the only one that passes the rubric.
+
+**CASE 2: Using "expenses_minus_salary" instead of "expenses" and "salary" separately**
+
+Inside `poi_id.py` file, I included a boolean flag called `use_salary_minus_expenses`, to make this switch easy.
+
+```
+Classifier:  dt (Decision Tree)
+Best params:  {'clf__min_samples_leaf': 2, 'clf__min_samples_split': 10, 'skb__k': 4}
+Best score:  0.9
+Best features:  ['exercised_stock_options', 'restricted_stock', 'bonus', 'salary_minus_expenses']
+Final features list:  ['poi', 'exercised_stock_options', 'restricted_stock', 'bonus', 'salary_minus_expenses']
+DecisionTreeClassifier(class_weight=None, criterion='gini', max_depth=None,
+            max_features=None, max_leaf_nodes=None,
+            min_impurity_decrease=0.0, min_impurity_split=None,
+            min_samples_leaf=2, min_samples_split=10,
+            min_weight_fraction_leaf=0.0, presort=False, random_state=0,
+            splitter='best')
+    Accuracy: 0.81277   Precision: 0.34718  Recall: 0.24650 F1: 0.28830 F2: 0.26168
+    Total predictions: 13000    True positives:  493    False positives:  927   False negatives: 1507   True negatives: 10073
+
+Classifier:  nb (Gaussian Naive Bayes)
+Best params:  {'skb__k': 1}
+Best score:  0.88
+Best features:  ['exercised_stock_options']
+Final features list:  ['poi', 'exercised_stock_options']
+GaussianNB(priors=None)
+    Accuracy: 0.90409   Precision: 0.46055  Recall: 0.32100 F1: 0.37831 F2: 0.34171
+    Total predictions: 11000    True positives:  321    False positives:  376   False negatives:  679   True negatives: 9624
+
+Classifier:  rf (Random Forest)
+Best params:  {'skb__k': 2, 'clf__min_samples_leaf': 2, 'clf__min_samples_split': 10, 'clf__n_estimators': 15}
+Best score:  0.91
+Best features:  ['exercised_stock_options', 'salary_minus_expenses']
+Final features list:  ['poi', 'exercised_stock_options', 'salary_minus_expenses']
+RandomForestClassifier(bootstrap=True, class_weight=None, criterion='gini',
+            max_depth=None, max_features='auto', max_leaf_nodes=None,
+            min_impurity_decrease=0.0, min_impurity_split=None,
+            min_samples_leaf=2, min_samples_split=10,
+            min_weight_fraction_leaf=0.0, n_estimators=15, n_jobs=1,
+            oob_score=False, random_state=0, verbose=0, warm_start=False)
+    Accuracy: 0.83467   Precision: 0.51227  Recall: 0.16700 F1: 0.25189 F2: 0.19302
+    Total predictions: 12000    True positives:  334    False positives:  318   False negatives: 1666   True negatives: 9682
+```
+
+When I added "salary_minus_expenses" and removed "salary" and "expenses" from the candidate feature pool, it resulted no difference in performance for the Gaussian Naive Bayes. Even in the first case SelectKBest did not choose either of salary or expenses to predict PoIs, and it did not select salary_minus_expenses.
+
+1. *GaussianNB with salary and expenses:* Accuracy: 0.90409   Precision: 0.46055  Recall: 0.32100 F1: 0.37831 F2: 0.34171
+1. *GaussianNB with salary_minus_expenses:*  Accuracy: 0.90409   Precision: 0.46055  Recall: 0.32100 F1: 0.37831 F2: 0.34171
+
+Thus, I ended up using the GaussianNB classifier with the following features (well, just one):
+
+1. exercised_stock_options
 
 ## Question 4
 What does it mean to tune the parameters of an algorithm, and what can happen if you don’t do this well?  How did you tune the parameters of your particular algorithm? What parameters did you tune? (Some algorithms do not have parameters that you need to tune -- if this is the case for the one you picked, identify and briefly explain how you would have done it for the model that was not your final choice or a different model that does utilize parameter tuning, e.g. a decision tree classifier).  [relevant rubric items: “discuss parameter tuning”, “tune the algorithm”]
