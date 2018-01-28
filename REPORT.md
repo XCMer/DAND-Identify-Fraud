@@ -240,10 +240,11 @@ Thus, I ended up using the GaussianNB classifier with the following features (we
 ## Question 4
 What does it mean to tune the parameters of an algorithm, and what can happen if you don’t do this well?  How did you tune the parameters of your particular algorithm? What parameters did you tune? (Some algorithms do not have parameters that you need to tune -- if this is the case for the one you picked, identify and briefly explain how you would have done it for the model that was not your final choice or a different model that does utilize parameter tuning, e.g. a decision tree classifier).  [relevant rubric items: “discuss parameter tuning”, “tune the algorithm”]
 
-Tuning the hyperparameters of an algorithm helps with increasing accuracy of the classifier. I tuned using GridSearchCV, though in the end, I had to use GaussianNB which does not have tunable hyperparameters.
+Hyperparameters are parameters of an estimator that are not learnt during training. This has to be specified by us before the training of the data. Algorithms are parameterized so that we can adapt them to different types of data. A wrong set of parameters can mean that the algorithm won't learn from the data well. I used GridSearchCV to find the right set of parameters for each of the algorithms that gave the best accuracy. This is a "search" approach for finding the right paramters.
 
-But I still ended up doing the tuning while trying out Random Forests and Decision Trees. You have to provide a list of possible values to try out for each parameter to GridSearchCV. Then, GridSearch will go through all the combinations of hyperparameters, and then run the classifier through K-Fold cross validation, and then tell you what set of parameters performed the best, and what the best score was.
+Internally, for every combination of parameters that we provide to the GridSearch algorithm, it trains the training set and validates it using KFold cross valdiation. I also made sure that it stratified the split, since we had very little positive labels.
 
+Hyperparameters are tuned to the training data, and might not always generalize to the test set. So there is a way that we might overfit the classifier by overdoing the hyperparameter tuning.
 
 ## Question 5
 What is validation, and what’s a classic mistake you can make if you do it wrong? How did you validate your analysis?  [relevant rubric items: “discuss validation”, “validation strategy”]
